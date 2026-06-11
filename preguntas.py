@@ -36,6 +36,28 @@ PREGUNTAS = [
         },
         'correcta': 'A'
     }
+    ,
+    {
+        'pregunta': '¿Cuál es el hijo de Vegeta?',
+        'opciones': {
+            'A': 'Trunks',
+            'B': 'Gohan',
+            'C': 'Kyabe',
+            'D': 'El Ciber'
+        },
+        'correcta': 'A'
+    }
+    ,
+    {
+        'pregunta': '¿Cuál fue el primer villano de Dragon Ball Z?',
+        'opciones': {
+            'A': 'Raditz',
+            'B': 'Piccolo',
+            'C': 'Vegeta y Nappa',
+            'D': 'Anubis un poderoso enemigo'
+        },
+        'correcta': 'A'
+    }
 ]
 
 def agregar(pregunta):

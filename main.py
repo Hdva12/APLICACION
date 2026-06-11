@@ -32,6 +32,15 @@ class MainWindow(QWidget):
         except Exception:
             pass
         self.feedback_label.hide()
+        # Etiqueta para resumen final
+        self.summary_label = QLabel("")
+        self.summary_label.setAlignment(Qt.AlignCenter)
+        try:
+            self.summary_label.setWordWrap(True)
+            self.summary_label.setStyleSheet('font-size: 20px;')
+        except Exception:
+            pass
+        self.summary_label.hide()
         # Intentar cargar la fuente proporcionada en confing.py
         try:
             font_file = getattr(confing, 'fuente', None)
@@ -74,6 +83,8 @@ class MainWindow(QWidget):
         # Botones Iniciar y Salir
         self.btn_iniciar = QPushButton(getattr(confing, 'BTN_INICIAR_TEXT', 'Iniciar'))
         self.btn_salir = QPushButton(getattr(confing, 'BTN_SALIR_TEXT', 'Salir'))
+        # Botón para volver al menú (oculto hasta terminar cuestionario)
+        self.btn_volver = QPushButton(getattr(confing, 'BTN_VOLVER_TEXT', 'Volver al menú'))
         self.label = QLabel()
 
         # Estilo desde confing (botones más grandes y con bordes redondeados)
@@ -89,6 +100,10 @@ class MainWindow(QWidget):
             btn_style = ''
         self.btn_iniciar.setStyleSheet(btn_style)
         self.btn_salir.setStyleSheet(btn_style)
+        try:
+            self.btn_volver.setStyleSheet(btn_style)
+        except Exception:
+            pass
         # Aplicar sombra más oscura a ambos botones según confing
         try:
             shadow_color = getattr(confing, 'BTN_SHADOW_COLOR', '#444444')
@@ -104,6 +119,18 @@ class MainWindow(QWidget):
                     drop.setColor(QColor('#444444'))
                 drop.setOffset(shadow_off_x, shadow_off_y)
                 btn.setGraphicsEffect(drop)
+            # aplicar la misma sombra al botón volver
+            try:
+                drop_v = QGraphicsDropShadowEffect(self.btn_volver)
+                drop_v.setBlurRadius(shadow_blur)
+                try:
+                    drop_v.setColor(QColor(shadow_color))
+                except Exception:
+                    drop_v.setColor(QColor('#444444'))
+                drop_v.setOffset(shadow_off_x, shadow_off_y)
+                self.btn_volver.setGraphicsEffect(drop_v)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -111,6 +138,11 @@ class MainWindow(QWidget):
         btn_w, btn_h = 360, 100
         self.btn_iniciar.setFixedSize(btn_w, btn_h)
         self.btn_salir.setFixedSize(btn_w, btn_h)
+        try:
+            self.btn_volver.setFixedSize(btn_w, btn_h)
+            self.btn_volver.hide()
+        except Exception:
+            pass
 
         # Layout vertical con título arriba y botones hacia abajo
         layout = QVBoxLayout()
@@ -118,12 +150,14 @@ class MainWindow(QWidget):
         self.main_layout = layout
         layout.addWidget(self.title_label, alignment=Qt.AlignHCenter)
         layout.addWidget(self.feedback_label, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.summary_label, alignment=Qt.AlignHCenter)
         layout.addStretch(1)
         layout.addWidget(self.input, alignment=Qt.AlignHCenter)
         # Añadir gran espacio para empujar los botones hacia abajo
         layout.addStretch(6)
         layout.addWidget(self.btn_iniciar, alignment=Qt.AlignHCenter)
         layout.addWidget(self.btn_salir, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.btn_volver, alignment=Qt.AlignHCenter)
         layout.addWidget(self.label, alignment=Qt.AlignHCenter)
         # Contenedor para los botones inferiores (oculto inicialmente)
         self.bottom_container = QWidget(self)
@@ -135,6 +169,11 @@ class MainWindow(QWidget):
         layout.addStretch(1)
 
         self.setLayout(layout)
+        # Guardar el título original para poder restaurarlo al volver al menú
+        try:
+            self.original_title = self.title_label.text()
+        except Exception:
+            self.original_title = getattr(confing, 'TITULO', 'Cuestionario de dragon ball')
 
     def config_window(self):
         self.setGeometry(confing.COR_X, confing.COR_Y, confing.ANCHO, confing.ALTO)
@@ -190,19 +229,27 @@ class MainWindow(QWidget):
         self.btn_iniciar.clicked.connect(self.show_text)
         # Salir cierra la aplicación
         self.btn_salir.clicked.connect(lambda: QApplication.instance().quit())
+        # Volver al menú
+        try:
+            self.btn_volver.clicked.connect(self.volver_menu)
+        except Exception:
+            pass
 
     # AQUI SE DEFINEN TODAS LAS FUNCIONALIDADES DE LA APP
     def show_text(self):
         text = self.input.text()
         self.label.setText(text)
         # Ocultar widgets para dejar solo el fondo visible
-        for w in (self.input, self.btn_iniciar, self.btn_salir, self.label):
+        for w in (self.input, self.btn_iniciar, self.btn_salir, self.btn_volver, self.label):
             try:
                 w.hide()
             except Exception:
                 pass
         # Inicializar índice de pregunta y mostrar primera pregunta
         self.current_question_index = 0
+        # Contadores para resumen
+        self.correct_count = 0
+        self.total_answers = 0
         try:
             if preguntas.PREGUNTAS:
                 q = preguntas.PREGUNTAS[self.current_question_index]
@@ -418,6 +465,13 @@ class MainWindow(QWidget):
                     self.feedback_label.setText('Incorrecto')
                     self.feedback_label.setStyleSheet('color: #dc3545; font-size: 32px;')
                 self.feedback_label.show()
+                # Actualizar contadores
+                try:
+                    self.total_answers += 1
+                    if chosen == correcta:
+                        self.correct_count += 1
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -450,10 +504,78 @@ class MainWindow(QWidget):
                         self.title_label.setText('Cuestionario terminado')
                     except Exception:
                         pass
+                    # Mostrar resumen simple: correctas/total
+                    try:
+                        total = getattr(self, 'total_answers', 0)
+                        correct = getattr(self, 'correct_count', 0)
+                        self.summary_label.setText(f"{correct}/{total} respuestas respondidas bien")
+                        try:
+                            self.summary_label.show()
+                        except Exception:
+                            pass
+                        try:
+                            self.btn_volver.show()
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
         QTimer.singleShot(1200, after_feedback)
+
+    def volver_menu(self):
+        """Restablece la interfaz al menú principal."""
+        try:
+            # Ocultar resumen y contenedores de preguntas
+            try:
+                self.summary_label.hide()
+            except Exception:
+                pass
+            try:
+                self.bottom_container.hide()
+            except Exception:
+                pass
+            try:
+                self.feedback_label.hide()
+            except Exception:
+                pass
+            # Limpiar botones inferiores
+            try:
+                if hasattr(self, 'bottom_buttons') and self.bottom_buttons:
+                    while self.bottom_layout.count():
+                        item = self.bottom_layout.takeAt(0)
+                        widget = item.widget()
+                        if widget:
+                            widget.setParent(None)
+                    self.bottom_buttons = []
+            except Exception:
+                pass
+            # Mostrar botones del menú
+            try:
+                self.btn_iniciar.show()
+                self.btn_salir.show()
+                self.btn_volver.hide()
+            except Exception:
+                pass
+            # Resetear contadores y estado
+            try:
+                self.current_question_index = 0
+                self.correct_count = 0
+                self.total_answers = 0
+            except Exception:
+                pass
+            # Restaurar título
+            try:
+                # Restaurar el título original guardado al inicio
+                title = getattr(self, 'original_title', None)
+                if not title:
+                    title = getattr(confing, 'TITULO', 'Cuestionario de dragon ball')
+                self.title_label.setText(title)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
 def run():
     # CREA Y EJECUTA LA APP
