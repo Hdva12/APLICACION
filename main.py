@@ -14,7 +14,17 @@ class MainWindow(QWidget):
         self.set_window()
         self.config_window()
         self.event_handler()
-        self.show()
+        # Abrir la ventana maximizada conservando bordes y decoración
+        try:
+            # Asegurar que la ventana tenga decoración de sistema
+            self.setWindowFlags(Qt.Window)
+        except Exception:
+            pass
+        try:
+            self.showMaximized()
+        except Exception:
+            # Fallback normal
+            self.show()
 
     def set_window(self): 
     
@@ -85,6 +95,8 @@ class MainWindow(QWidget):
         self.btn_salir = QPushButton(getattr(confing, 'BTN_SALIR_TEXT', 'Salir'))
         # Botón para volver al menú (oculto hasta terminar cuestionario)
         self.btn_volver = QPushButton(getattr(confing, 'BTN_VOLVER_TEXT', 'Volver al menú'))
+        # Botón para iniciar la sección Verdadero o Falso (oculto hasta terminar cuestionario)
+        self.btn_vf = QPushButton(getattr(confing, 'BTN_VF_TEXT', 'Verdadero o falso'))
         self.label = QLabel()
 
         # Estilo desde confing (botones más grandes y con bordes redondeados)
@@ -102,6 +114,7 @@ class MainWindow(QWidget):
         self.btn_salir.setStyleSheet(btn_style)
         try:
             self.btn_volver.setStyleSheet(btn_style)
+            self.btn_vf.setStyleSheet(btn_style)
         except Exception:
             pass
         # Aplicar sombra más oscura a ambos botones según confing
@@ -110,7 +123,7 @@ class MainWindow(QWidget):
             shadow_blur = getattr(confing, 'BTN_SHADOW_BLUR_RADIUS', 20)
             shadow_off_x = getattr(confing, 'BTN_SHADOW_OFFSET_X', 0)
             shadow_off_y = getattr(confing, 'BTN_SHADOW_OFFSET_Y', 6)
-            for btn in (self.btn_iniciar, self.btn_salir):
+            for btn in (self.btn_iniciar, self.btn_salir, self.btn_vf):
                 drop = QGraphicsDropShadowEffect(btn)
                 drop.setBlurRadius(shadow_blur)
                 try:
@@ -140,6 +153,7 @@ class MainWindow(QWidget):
         self.btn_salir.setFixedSize(btn_w, btn_h)
         try:
             self.btn_volver.setFixedSize(btn_w, btn_h)
+            self.btn_vf.setFixedSize(btn_w, btn_h)
             self.btn_volver.hide()
         except Exception:
             pass
@@ -157,6 +171,7 @@ class MainWindow(QWidget):
         layout.addStretch(6)
         layout.addWidget(self.btn_iniciar, alignment=Qt.AlignHCenter)
         layout.addWidget(self.btn_salir, alignment=Qt.AlignHCenter)
+        layout.addWidget(self.btn_vf, alignment=Qt.AlignHCenter)
         layout.addWidget(self.btn_volver, alignment=Qt.AlignHCenter)
         layout.addWidget(self.label, alignment=Qt.AlignHCenter)
         # Contenedor para los botones inferiores (oculto inicialmente)
@@ -234,13 +249,18 @@ class MainWindow(QWidget):
             self.btn_volver.clicked.connect(self.volver_menu)
         except Exception:
             pass
+        # Botón Verdadero/Falso (nueva sección)
+        try:
+            self.btn_vf.clicked.connect(self.start_vf_section)
+        except Exception:
+            pass
 
     # AQUI SE DEFINEN TODAS LAS FUNCIONALIDADES DE LA APP
     def show_text(self):
         text = self.input.text()
         self.label.setText(text)
         # Ocultar widgets para dejar solo el fondo visible
-        for w in (self.input, self.btn_iniciar, self.btn_salir, self.btn_volver, self.label):
+        for w in (self.input, self.btn_iniciar, self.btn_salir, self.btn_volver, self.btn_vf, self.label):
             try:
                 w.hide()
             except Exception:
@@ -288,7 +308,7 @@ class MainWindow(QWidget):
             items = list(opts.items())
 
         # Tamaño y estilo heredado de confing (botones estilo Kahoot: más grandes)
-        btn_w, btn_h = 480, 140
+        btn_w, btn_h = 270, 140
         try:
             radius = getattr(confing, 'BTN_BORDER_RADIUS', 20)
             color = getattr(confing, 'BTN_COLOR', '#87CEEB')
@@ -483,12 +503,24 @@ class MainWindow(QWidget):
                 except Exception:
                     pass
                 next_index = idx + 1
-                if next_index < len(preguntas.PREGUNTAS):
+                try:
+                    total = len(preguntas.PREGUNTAS)
+                except Exception:
+                    total = 0
+                if next_index < total:
                     self.current_question_index = next_index
                     try:
-                        q = preguntas.PREGUNTAS[next_index]
+                        actual_next = next_index
+                        if getattr(self, 'question_order', None):
+                            # Mapear índice lógico -> índice real siguiendo la permutación
+                            actual_next = self.question_order[next_index]
+                        q = preguntas.PREGUNTAS[actual_next]
                         q_text = q.get('pregunta') if isinstance(q, dict) else None
                         if q_text:
+                            try:
+                                print(f"[V/F] avanzando next_index={next_index} -> actual_next={actual_next}: {q_text}", flush=True)
+                            except Exception:
+                                pass
                             self.title_label.setText(q_text)
                     except Exception:
                         pass
@@ -524,6 +556,83 @@ class MainWindow(QWidget):
 
         QTimer.singleShot(1200, after_feedback)
 
+    def start_vf_section(self):
+        """Inicia la sección Verdadero o Falso: carga preguntas V/F y muestra la primera."""
+        try:
+            # Guardar preguntas actuales para restaurar al volver
+            try:
+                self.saved_questions = preguntas.PREGUNTAS
+            except Exception:
+                self.saved_questions = None
+            # Cargar preguntas V/F
+            try:
+                if hasattr(preguntas, 'get_vf_questions'):
+                    preguntas.PREGUNTAS = preguntas.get_vf_questions()
+                else:
+                    return
+            except Exception:
+                return
+
+            # Ocultar elementos de menú
+            for w in (self.input, self.btn_iniciar, self.btn_salir, self.btn_volver, self.btn_vf, self.label):
+                try:
+                    w.hide()
+                except Exception:
+                    pass
+
+            # Inicializar estado y barajar preguntas V/F
+            self.current_question_index = 0
+            self.correct_count = 0
+            self.total_answers = 0
+            try:
+                # Asegurar que no quede una lista previa con posibles inconsistencias
+                if hasattr(self, 'question_order'):
+                    try:
+                        del self.question_order
+                    except Exception:
+                        pass
+                # Generar una permutación única de índices
+                self.question_order = random.sample(range(len(preguntas.PREGUNTAS)), k=len(preguntas.PREGUNTAS))
+                # Log para depuración: mostrar la permutación creada
+                try:
+                    print("[V/F] question_order:", self.question_order, flush=True)
+                except Exception:
+                    pass
+            except Exception:
+                self.question_order = None
+
+            # Mostrar primera pregunta usando mapping
+            try:
+                if preguntas.PREGUNTAS:
+                    actual_idx = 0
+                    if getattr(self, 'question_order', None) and len(self.question_order) > 0:
+                        actual_idx = self.question_order[0]
+                    q = preguntas.PREGUNTAS[actual_idx]
+                    q_text = q.get('pregunta') if isinstance(q, dict) else None
+                    if q_text:
+                        try:
+                            print(f"[V/F] mostrando primera pregunta actual_idx={actual_idx}: {q_text}", flush=True)
+                        except Exception:
+                            pass
+                        self.title_label.setText(q_text)
+                        try:
+                            self.adjust_title_font()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            try:
+                self.title_label.show()
+            except Exception:
+                pass
+
+            # Crear y mostrar botones
+            self.create_bottom_buttons()
+            self.bottom_container.show()
+            self.randomize_bottom_positions()
+        except Exception:
+            pass
+
     def volver_menu(self):
         """Restablece la interfaz al menú principal."""
         try:
@@ -556,6 +665,10 @@ class MainWindow(QWidget):
                 self.btn_iniciar.show()
                 self.btn_salir.show()
                 self.btn_volver.hide()
+                try:
+                    self.btn_vf.show()
+                except Exception:
+                    pass
             except Exception:
                 pass
             # Resetear contadores y estado

@@ -11,12 +11,12 @@ BTN_TEXT = 'Enviar'
 BTN_INICIAR_TEXT = 'Iniciar'
 BTN_SALIR_TEXT = 'Salir'
 # Colores para los botones (usar formato hex o nombre CSS)
-BTN_COLOR = '#87CEEB'
+BTN_COLOR = '#1E90FF'
 BTN_TEXT_COLOR = '#ffffff'
 
 # Configuración del título mostrado en la ventana (label superior)
 TITULO_LABEL = 'cuestonario de dragon Ball'
-TITULO_FONT_SIZE = 48
+TITULO_FONT_SIZE = 32
 TITULO_FONT_COLOR = '#000000'
 # Radio de difuminado para el fondo (0 = sin difuminado)
 BG_BLUR_RADIUS = 8
